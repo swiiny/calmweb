@@ -5,7 +5,7 @@
 
 A proxy / Web filter aimed to protect eldry or unconfident people on the internet, protecting them from ads, scams and block remote control softwares like Teamviewer.
 
-Why use Camlweb?
+Why use Caml Web?  
 Calm Web is meant to protect people with no or poor internet knowledge.  
 It's aggressive by design, simple yet efficient ( i hope)
 It works system wide, so no matter the browser you use, it will work and will block already installed programs or tools, even the Windows remote assistance tool!
