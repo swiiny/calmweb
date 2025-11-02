@@ -44,3 +44,4 @@ Everything is subject to discussion and enhancements! Share your knolwedges.
 - Allow to setup a system wide, "discrete" mode where the program runs  in background showing no icons at all
 - Add domains in whitelist that are needed
 - Add blocked domains when you discover a new scam, risky website.
+- Ensure whitelists are working perfectly no matter what
