@@ -3,6 +3,16 @@
 A proxy / Web filter aimed to protect eldry or unconfident people on the internet, protecting them from ads, scams and whatever.
 
 This tool start a proxy on the computer on port 8080 and configure windows to use it as a proxy.
+
+Installation:
+Donwload and run calmweb_proxy.exe.
+
+The program will:
+- copy himself in C:\Program Files\CalmWeb
+- Setup a firewall rule
+- Add a scheduled task at startup (admins rights required to setup proxy)
+- Start the program, setup the proxy, download whitelists and blocklists
+
 By default it will block the following:
 - Traffic on http port
 - Browsing using IP addresses to avoid scams
@@ -23,6 +33,7 @@ By default the following domains are whitelisted:
 ### todo:
 Everything is subject to discussion and enhancements! Share your knolwedges.
 Test on windows 10
+Ensure the proxy will not cause problms: correct stop at shutdown, multi users
 Displaylig log crash the program
 Enhanced a lot the script, make it perfectly stable and robust.
 Correct encoding (some messages are displayer weirdly)
