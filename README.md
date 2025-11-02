@@ -14,10 +14,10 @@ It works system wide, so no matter the browser you use, it will work and will bl
 
 
 ## Installation:
-Donwload and run calmweb_proxy.exe.
+Download and run calmweb_proxy.exe.
 
 The program will:
-- copy himself in C:\Program Files\CalmWeb
+- Copy himself in C:\Program Files\CalmWeb
 - Setup a firewall rule
 - Add a scheduled task at startup (admins rights required to setup proxy)
 - Start the program, setup the proxy, download whitelists and blocklists
