@@ -1,7 +1,7 @@
 
 ![calmweb](https://github.com/user-attachments/assets/3508836a-b2dd-4c0b-ac6f-93a490b5ee94)
 
-# calmweb
+# Calm Web
 
 A proxy / Web filter aimed to protect eldry or unconfident people on the internet, protecting them from ads, scams and block remote control softwares like Teamviewer.
 
