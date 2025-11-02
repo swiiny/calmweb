@@ -8,7 +8,7 @@ A proxy / Web filter aimed to protect eldry or unconfident people on the interne
 Why use Camlweb?
 Calm Web is meant to protect people with no or poor internet knowledge.  
 It's aggressive by design, simple yet efficient ( i hope)
-It works system wide, so no matter the browser you use, it will work.
+It works system wide, so no matter the browser you use, it will work and will block already installed programs or tools, even the Windows remote assistance tool!
 
 ## Installation:
 Donwload and run calmweb_proxy.exe.
