@@ -36,6 +36,8 @@ The program will:
     "https://raw.githubusercontent.com/Tontonjo/calmweb/refs/heads/main/filters/whitelist.txt"  
 - Domains manually added in the whitelist at %appdata%\calmweb\custom.cfg  
 
+### Known problems:
+- Sandbox not working whhen calmweb is running
 
 ### todo:
 Everything is subject to discussion and enhancements! Share your knolwedges.  
