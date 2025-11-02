@@ -1,4 +1,4 @@
-# Thoses domaines are blocked for security reasons, if one needs to be allowed, use the custom.cfg whitelist
+# Thoses domains are blocked for security reasons, if one needs to be allowed, use the custom.cfg whitelist
 teamviewer.com
 remotedesktop.google.com
 remotepc.com"
