@@ -1,10 +1,12 @@
 # calmweb
 
-A proxy / Web filter aimed to protect eldry or unconfident people on the internet, protecting them from ads, scams and whatever.
+A proxy / Web filter aimed to protect eldry or unconfident people on the internet, protecting them from ads, scams and block remote control softwares like Teamviewer.
 
-This tool start a proxy on the computer on port 8080 and configure windows to use it as a proxy.
+Why use Camlweb?
+Calmweb is meant to protect people with no or poor internet knowledge.
+It's aggressive by design, simple yet efficient ( i hope)
 
-Installation:
+## Installation:
 Donwload and run calmweb_proxy.exe.
 
 The program will:
@@ -13,7 +15,8 @@ The program will:
 - Add a scheduled task at startup (admins rights required to setup proxy)
 - Start the program, setup the proxy, download whitelists and blocklists
 
-By default it will block the following:
+## What is allowed and what is blocked?
+### By default it will block the following:
 - Traffic on http port
 - Browsing using IP addresses to avoid scams
 - Browsing on non standard port (80/443)
@@ -24,7 +27,7 @@ By default it will block the following:
     "https://raw.githubusercontent.com/Tontonjo/calmweb/refs/heads/main/filters/blocklist.txt"  
 - Domains manually added in the blocklist at %appdata%\calmweb\custom.cfg  
 
-By default the following domains are whitelisted:
+### By default the following domains are whitelisted:
 - Domains listed in thoses lists:  
     "https://raw.githubusercontent.com/Tontonjo/calmweb/refs/heads/main/filters/whitelist.txt"  
 - Domains manually added in the whitelist at %appdata%\calmweb\custom.cfg  
