@@ -1,0 +1,8 @@
+# Thoses domaines are allowed to ensure good fonctionnality of the client
+data.microsoft.com
+download.windowsupdate.com
+mp.microsoft.com
+msecnd.net
+msftidentity.com
+msftauth.net
+digicert.com
