@@ -8,11 +8,11 @@ By default it will block the following:
 - Browsing using IP addresses to avoid scams
 - Browsing on non standard port (80/443)
 - Domains listed in thoses lists: All credits to them!
-    "https://raw.githubusercontent.com/StevenBlack/hosts/refs/heads/master/hosts"
-    "https://raw.githubusercontent.com/easylist/listefr/refs/heads/master/hosts.txt"
-    "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/ultimate.txt"
-    "https://raw.githubusercontent.com/Tontonjo/calmweb/refs/heads/main/filters/blocklist.txt"
-- Domains manually added in the blocklist at %appdata%\calmweb\custom.cfg
+    "https://raw.githubusercontent.com/StevenBlack/hosts/refs/heads/master/hosts"  
+    "https://raw.githubusercontent.com/easylist/listefr/refs/heads/master/hosts.txt"  
+    "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/ultimate.txt"  
+    "https://raw.githubusercontent.com/Tontonjo/calmweb/refs/heads/main/filters/blocklist.txt"  
+- Domains manually added in the blocklist at %appdata%\calmweb\custom.cfg  
 
 By default the following domains are whitelisted:
 - Domains listed in thoses lists:
