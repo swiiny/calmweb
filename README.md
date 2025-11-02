@@ -1,2 +1,30 @@
 # calmweb
-A proxy / Web filter aimed for eldry or unconfident people on the internet
+
+A proxy / Web filter aimed to protect eldry or unconfident people on the internet, protecting them from ads, scams and whatever.
+
+This tool start a proxy on the computer on port 8080 and configure windows to use it as a proxy.
+By default it will block the following:
+- Traffic on http port
+- Browsing using IP addresses to avoid scams
+- Browsing on non standard port (80/443)
+- Domains listed in thoses lists: All credits to them!
+    "https://raw.githubusercontent.com/StevenBlack/hosts/refs/heads/master/hosts"
+    "https://raw.githubusercontent.com/easylist/listefr/refs/heads/master/hosts.txt"
+    "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/ultimate.txt"
+    "https://raw.githubusercontent.com/Tontonjo/calmweb/refs/heads/main/filters/blocklist.txt"
+- Domains manually added in the blocklist at %appdata%\calmweb\custom.cfg
+
+By default the following domains are whitelisted:
+- Domains listed in thoses lists:
+    "https://raw.githubusercontent.com/Tontonjo/calmweb/refs/heads/main/filters/whitelist.txt"
+- Domains manually added in the whitelist at %appdata%\calmweb\custom.cfg
+
+
+### todo:
+Everything is subject to discussion and enhancements! Share your knolwedges.
+Test on windows 10
+Displaylig log crash the program
+Enhanced a lot the script, make it perfectly stable and robust.
+Correct encoding (some messages are displayer weirdly)
+Configure a self-updating method
+Allow to setup a system wide, "discrete" mode where the program runs  in background showing no icons at all
