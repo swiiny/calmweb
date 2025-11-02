@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
-# Tonton Jo - 2025
-# Join me on Youtube: https://www.youtube.com/c/tontonjo
-
-# This is proof of concept - install at your own risks
+# This is proof of concept
 calmweb_version = "1.0.0"
 
 import os
@@ -340,6 +338,7 @@ def add_firewall_rule(target_file):
     except Exception as e:
         log(f"Erreur firewall : {e}")
 
+
 # === Blocklist Resolver ===
 class BlocklistResolver:
     def __init__(self, blocklist_urls, reload_interval=3600):
@@ -349,7 +348,15 @@ class BlocklistResolver:
         self.last_reload = 0
         self._lock = threading.Lock()
         self._loading_lock = threading.Lock()
-        # Load initial (non-blocking allowed)
+
+        # Structures dédiées pour la whitelist:
+        # - whitelisted_domains: noms de domaines / hôtes (string)
+        # - whitelisted_networks: objets ip_network pour CIDR
+        # Les deux sont protégées par self._lock
+        self.whitelisted_domains_local = set()   # non-global copy; on fusionnera avec global si nécessaire
+        self.whitelisted_networks = set()       # set(ipaddress.ip_network(...))
+
+        # Chargement initial (tolérant)
         try:
             self._load_blocklist()
             self._load_whitelist()
@@ -417,14 +424,27 @@ class BlocklistResolver:
                 log(f"Erreur _load_blocklist: {e}\n{traceback.format_exc()}")
             finally:
                 _RESOLVER_LOADING.clear()
+
     def _load_whitelist(self):
         """
-        Télécharge & parse les whitelists et fusionne avec whitelisted_domains.
+        Télécharge & parse les whitelists et met à jour self.whitelisted_domains_local et self.whitelisted_networks.
+        - supporte: exact domains, *.example.com (on stocke "example.com"), CIDR (1.2.3.0/24), IPs.
+        - mise à jour atomique des structures protégées par self._lock.
         """
         try:
             http = urllib3.PoolManager(cert_reqs='CERT_REQUIRED', ssl_context=ssl.create_default_context())
-            # Copie locale actuelle (sans global)
-            new_whitelist = set(whitelisted_domains)
+            new_domains = set()
+            new_networks = set()
+
+            # Si un ensemble global whitelisted_domains existe (global), on le prend en base
+            try:
+                # copie des domaines globaux si définis
+                if 'whitelisted_domains' in globals():
+                    for d in whitelisted_domains:
+                        if isinstance(d, str) and d:
+                            new_domains.add(d.lower().lstrip('.'))
+            except Exception:
+                pass
 
             for url in WHITELIST_URLS:
                 for attempt in range(3):
@@ -435,28 +455,58 @@ class BlocklistResolver:
                             raise Exception(f"HTTP {response.status}")
                         content = response.data.decode("utf-8", errors='ignore')
                         for line in content.splitlines():
-                            line = line.split('#', 1)[0].strip()
-                            if not line:
+                            try:
+                                line = line.split('#', 1)[0].strip()
+                                if not line:
+                                    continue
+                                entry = line.lower().strip()
+                                # wildcard *.example.com -> store example.com
+                                if entry.startswith("*."):
+                                    domain = entry[2:].lstrip('.')
+                                    if domain and not self._looks_like_ip(domain):
+                                        new_domains.add(domain)
+                                    continue
+                                # CIDR or IP network
+                                if '/' in entry:
+                                    try:
+                                        net = ipaddress.ip_network(entry, strict=False)
+                                        new_networks.add(net)
+                                        continue
+                                    except Exception:
+                                        # maybe malformed, skip
+                                        continue
+                                # plain IP
+                                if self._looks_like_ip(entry):
+                                    new_domains.add(entry)
+                                    continue
+                                # plain domain
+                                entry = entry.lstrip('.')
+                                if entry and not self._looks_like_ip(entry) and len(entry) <= 253:
+                                    new_domains.add(entry)
+                            except Exception:
                                 continue
-                            domain = line.lower().lstrip('.')
-                            if domain and not self._looks_like_ip(domain):
-                                new_whitelist.add(domain)
                         break
                     except Exception as e:
                         log(f"[⚠️] Loading whitelist failed {url} attempt {attempt+1}: {e}")
                         time.sleep(1 + attempt * 2)
 
-            # ✅ Mise à jour atomique sans global
+            # mise à jour atomique
             with self._lock:
-                whitelisted_domains.clear()
-                whitelisted_domains.update(new_whitelist)
+                self.whitelisted_domains_local = new_domains
+                self.whitelisted_networks = new_networks
 
-            log(f"✅ {len(whitelisted_domains)} domaines whitelistés chargés.")
+                # si tu veux refléter dans un global 'whitelisted_domains', fais-le ici de façon atomique :
+                try:
+                    if 'whitelisted_domains' in globals():
+                        whitelisted_domains.clear()
+                        whitelisted_domains.update(new_domains)
+                except Exception:
+                    pass
 
+            log(f"✅ {len(self.whitelisted_domains_local)} domaines whitelistés chargés, {len(self.whitelisted_networks)} réseaux CIDR.")
         except Exception as e:
             log(f"[Erreur] _load_whitelist: {e}\n{traceback.format_exc()}")
 
-    
     def _looks_like_ip(self, s):
         try:
             ipaddress.ip_address(s)
@@ -464,66 +514,107 @@ class BlocklistResolver:
         except Exception:
             return False
 
-    def _is_blocked(self, hostname):
+    def is_whitelisted(self, hostname):
+        """
+        Vérifie si hostname est explicitement whitelisté (domain, parent domain, wildcard),
+        ou appartient à un réseau CIDR whitelisté.
+        - hostname peut être un IP (string) ou un fqdn.
+        - gère sous-domaines : si 'example.com' est dans whitelist, 'sub.a.example.com' est autorisé.
+        """
         try:
             if not hostname:
                 return False
-
-            # Normaliser
             host = hostname.strip().lower().rstrip('.')
             if not host:
                 return False
 
-            # --- Cas IP directe ---
+            # IP direct -> check networks and exact IP whitelist
             try:
                 if self._looks_like_ip(host):
-                    # Si l'IP est explicitement en whitelist -> autoriser
-                    if host in whitelisted_domains:
-                        log(f"✅ [WHITELIST ALLOW IP] {hostname}")
-                        return False
-                    # Sinon se fier au flag block_ip_direct
-                    return bool(block_ip_direct)
+                    ip_obj = ipaddress.ip_address(host)
+                    with self._lock:
+                        # exact IP in domain whitelist?
+                        if host in self.whitelisted_domains_local:
+                            return True
+                        # any network contains?
+                        for net in self.whitelisted_networks:
+                            if ip_obj in net:
+                                return True
+                    return False
             except Exception:
-                # Si détection IP échoue, continuer comme hostname normal
                 pass
 
             parts = host.split('.')
+            with self._lock:
+                # Check candidate suffixes: host, parent, ... top-level domain excluded if empty
+                for i in range(len(parts)):
+                    candidate = '.'.join(parts[i:])
+                    if candidate in self.whitelisted_domains_local:
+                        return True
 
-            # --- Vérifier la whitelist (exacte et parents) en priorité ---
+            return False
+        except Exception as e:
+            log(f"is_whitelisted error for {hostname}: {e}")
+            return False
+
+    def _is_blocked(self, hostname):
+        """
+        Retourne True si hostname doit être bloqué.
+        Priorité: whitelist -> always allow.
+        Ensuite: IP direct: utilise block_ip_direct flag.
+        Ensuite: check blocked_domains et manual_blocked_domains (parents inclus).
+        """
+        try:
+            if not hostname:
+                return False
+
+            host = hostname.strip().lower().rstrip('.')
+            if not host:
+                return False
+
+            # 1) Whitelist has absolute priority
             try:
-                with self._lock:
-                    for i in range(len(parts)):
-                        candidate = '.'.join(parts[i:])
-                        if candidate in whitelisted_domains:
-                            log(f"✅ [WHITELIST ALLOW] {hostname} matched {candidate}")
-                            return False
+                if self.is_whitelisted(host):
+                    log(f"✅ [WHITELIST ALLOW] {_safe_str(hostname)} matched whitelist")
+                    return False
             except Exception as e:
-                # En cas d'erreur lors du check whitelist, loguer mais ne bloquer pas par défaut
-                log(f"_is_blocked whitelist check error for {hostname}: {e}")
+                log(f"_is_blocked: whitelist check failed for {hostname}: {e}")
+                # en cas d'erreur, on ne bloque pas
+                return False
 
-            # --- Vérifier les blocklists (atomique lock pour lecture cohérente) ---
+            # 2) IP direct handling
+            try:
+                if self._looks_like_ip(host):
+                    # If IP explicitly in global whitelisted_domains (string), allow
+                    if 'whitelisted_domains' in globals() and host in whitelisted_domains:
+                        log(f"✅ [WHITELIST ALLOW IP] {hostname}")
+                        return False
+                    # otherwise rely on flag block_ip_direct
+                    return bool(block_ip_direct)
+            except Exception:
+                # si pb lors de detection IP, poursuivre comme hostname
+                pass
+
+            parts = host.split('.')
+            # 3) Blocklist check (with parents)
             try:
                 with self._lock:
-                    # exact host
+                    # check exact host (host) and global manual blocked
                     if host in self.blocked_domains or host in manual_blocked_domains:
                         return True
-                    # parents (ex: example.com bloqué => sub.example.com bloqué)
+                    # check parents
                     for i in range(1, len(parts)):
                         parent = '.'.join(parts[i:])
                         if parent in self.blocked_domains or parent in manual_blocked_domains:
                             return True
             except Exception as e:
                 log(f"_is_blocked blocklist check error for {hostname}: {e}")
-                # En cas d'erreur, être tolérant : ne pas bloquer par accident
                 return False
 
-            # Aucun motif de blocage trouvé
             return False
-
         except Exception as e:
             log(f"_is_blocked error for {hostname}: {e}")
             return False
-
 
     def maybe_reload_background(self):
         """
@@ -540,7 +631,6 @@ class BlocklistResolver:
         except Exception as e:
             log(f"maybe_reload_background error: {e}")
 
-            log(f"maybe_reload_background error: {e}")
 
 # === System proxy ===
 def set_system_proxy(enable=True, host=PROXY_BIND_IP, port=PROXY_PORT):
@@ -675,41 +765,87 @@ class BlockProxyHandler(BaseHTTPRequestHandler):
         host_port = self.path
         target_host, target_port = host_port.split(':', 1)
         target_port = int(target_port)
-        hostname = host_port.split(':', 1)[0].lower() if host_port else None
+        hostname = target_host.lower() if target_host else None
         try:
             if current_resolver:
                 current_resolver.maybe_reload_background()
+
+            # Si whitelistée, bypass TOUTES les restrictions (ports, http flags, blocklist)
+            try:
+                if current_resolver and current_resolver.is_whitelisted(hostname):
+                    log(f"✅ [WHITELIST BYPASS CONNECT] {hostname}:{target_port}")
+                    # create connection and relay as usual without further checks
+                    remote = socket.create_connection((target_host, target_port), timeout=10)
+                    self.send_response(200, "Connection Established")
+                    self.send_header('Connection', 'close')
+                    self.end_headers()
+
+                    conn = self.connection
+                    _set_socket_opts_for_perf(conn)
+                    _set_socket_opts_for_perf(remote)
+                    conn.settimeout(None)
+                    remote.settimeout(None)
+                    conn.setblocking(True)
+                    remote.setblocking(True)
+                    full_duplex_relay(conn, remote)
+                    return
+            except Exception as e:
+                # si check whitelist plante, on continue vers checks sécurisés plutôt que laisser tout passer
+                log(f"[WARN] whitelist check error in CONNECT for {hostname}: {e}")
+
+            # blocage basé sur blocklist
             if block_enabled and current_resolver and current_resolver._is_blocked(hostname):
                 log(f"🚫 [Proxy BLOCK HTTPS] {hostname}")
                 self.send_error(403, "Bloqué par sécurité")
                 return
-            if block_http_other_ports and target_port not in self.VOIP_ALLOWED_PORTS:
-                log(f"🚫 [Proxy BLOCK other port] {target_host}:{target_port}")
-                self.send_error(403, "port non standard bloqué par sécurité")
-                return
+
+            # Si la cible est whitelistée, bypass tous les contrôles
+            if current_resolver and current_resolver.is_whitelisted(hostname):
+                log(f"✅ [WHITELIST BYPASS CONNECT] {hostname}:{target_port}")
+                try:
+                    remote = socket.create_connection((target_host, target_port), timeout=10)
+                    self.send_response(200, "Connection Established")
+                    self.send_header('Connection', 'close')
+                    self.end_headers()
+
+                    conn = self.connection
+                    _set_socket_opts_for_perf(conn)
+                    _set_socket_opts_for_perf(remote)
+                    conn.settimeout(None)
+                    remote.settimeout(None)
+                    conn.setblocking(True)
+                    remote.setblocking(True)
+                    full_duplex_relay(conn, remote)
+                    return
+                except Exception as e:
+                    log(f"[Whitelist bypass CONNECT error] {e}")
+                    self.send_error(502, "Bad Gateway")
+                    return
+
+                # sinon on applique les règles normales
+                if block_http_other_ports and target_port not in self.VOIP_ALLOWED_PORTS:
+                    log(f"🚫 [Proxy BLOCK other port] {target_host}:{target_port}")
+                    self.send_error(403, "port non standard bloqué par sécurité")
+                    return
+
+
+            # Autorisation normale — établir tunnel
             log(f"✅ [Proxy ALLOW HTTPS] {hostname}")
 
-            # Création connexion distante
             remote = socket.create_connection((target_host, target_port), timeout=10)
-
-            # Réponse 200 au client pour établir le tunnel
             self.send_response(200, "Connection Established")
             self.send_header('Connection', 'close')
             self.end_headers()
 
             conn = self.connection
-
-            # Ajuster options perf et keepalive
             _set_socket_opts_for_perf(conn)
             _set_socket_opts_for_perf(remote)
-
-            # Retirer timeout après connexion
             conn.settimeout(None)
             remote.settimeout(None)
             conn.setblocking(True)
             remote.setblocking(True)
-
             full_duplex_relay(conn, remote)
+
         except Exception as e:
             log(f"[Proxy CONNECT error] {e}")
             try:
@@ -728,45 +864,28 @@ class BlockProxyHandler(BaseHTTPRequestHandler):
         if hostname:
             hostname = hostname.lower().strip()
 
-        def _is_whitelisted(host):
-            try:
-                if not host:
-                    return False
-                h = host.rstrip('.').lower()
-                try:
-                    if current_resolver and current_resolver._looks_like_ip(h):
-                        if h in whitelisted_domains:
-                            return True
-                        return False
-                except Exception:
-                    pass
-                parts = h.split('.')
-                with (current_resolver._lock if current_resolver else threading.Lock()):
-                    for i in range(len(parts)):
-                        candidate = '.'.join(parts[i:])
-                        if candidate in whitelisted_domains:
-                            return True
-                return False
-            except Exception as e:
-                log(f"_is_whitelisted check error for {host}: {e}")
-                return False
+        # Centraliser la vérification whitelist via current_resolver
+        is_whitelisted = False
+        try:
+            if current_resolver and current_resolver.is_whitelisted(hostname):
+                is_whitelisted = True
+        except Exception as e:
+            log(f"_handle_http_method whitelist check error for {hostname}: {e}")
 
-        is_whitelisted = _is_whitelisted(hostname)
-
-        if block_enabled and current_resolver and current_resolver._is_blocked(hostname):
-            log(f"🚫 [Proxy BLOCK HTTP] {hostname} ({self.command} {self.path})")
-            self.send_error(403, "Bloqué par sécurité")
-            return
-
+        # Si whitelistée => bypass complet : on n'applique pas block_http_traffic, ports ni blocklist
         if is_whitelisted:
-            log(f"✅ [WHITELIST ALLOW HTTP] {hostname} ({self.command} {self.path})")
+            log(f"✅ [WHITELIST BYPASS HTTP] {hostname} ({self.command} {self.path})")
+            # Continue vers le forwarding normal (ne pas envoyer 403 même si block_enabled)
+            # Le reste du code va établir la connexion et relayer normalement.
         else:
-            if block_enabled and block_http_traffic and isinstance(self.path, str) and self.path.startswith("http://"):
-                log(f"🚫 [Proxy BLOCK HTTP Traffic] {hostname}")
-                self.send_error(403, "Bloqué HTTP par sécurité")
+            # si non whitelistée, on applique les protections normales
+            if block_enabled and current_resolver and current_resolver._is_blocked(hostname):
+                log(f"🚫 [Proxy BLOCK HTTP] {hostname} ({self.command} {self.path})")
+                self.send_error(403, "Bloqué par sécurité")
                 return
 
         try:
+            # Extraire target_host, target_port, path_only de la requête
             if isinstance(self.path, str) and self.path.startswith(("http://", "https://")):
                 parsed = urllib.parse.urlparse(self.path)
                 scheme = parsed.scheme
@@ -792,13 +911,22 @@ class BlockProxyHandler(BaseHTTPRequestHandler):
             if not target_host:
                 self.send_error(400, "Bad Request - target host unknown")
                 return
-            if block_http_other_ports and target_port not in self.VOIP_ALLOWED_PORTS:
+
+            # Si non whitelistée et port non autorisé -> blocage si flag actif
+            if (not is_whitelisted) and block_http_other_ports and target_port not in self.VOIP_ALLOWED_PORTS:
                 log(f"🚫 [BLOCK other port] {target_host}:{target_port}")
                 self.send_error(403, "port non standard bloqué par sécurité")
                 return
 
+            # Si non whitelistée et blocage du HTTP direct activé
+            if (not is_whitelisted) and block_enabled and block_http_traffic and isinstance(self.path, str) and self.path.startswith("http://"):
+                log(f"🚫 [Proxy BLOCK HTTP Traffic] {hostname}")
+                self.send_error(403, "Bloqué HTTP par sécurité")
+                return
+
             log(f"✅ [Proxy ALLOW HTTP] {target_host}:{target_port} -> {self.command} {path_only}")
 
+            # Construire headers à forwarder
             hop_by_hop = {"proxy-connection","connection","keep-alive","transfer-encoding","te","trailers","upgrade","proxy-authorization"}
             header_lines = []
             host_header_value = target_host
@@ -852,6 +980,7 @@ class BlockProxyHandler(BaseHTTPRequestHandler):
                 pass
 
             log(f"[Proxy FORWARD DIRECT] {target_host}:{target_port} -> {self.command} {path_only}")
+
         except Exception as e:
             log(f"[Proxy forward error] {e}\n{traceback.format_exc()}")
             try:
@@ -859,12 +988,14 @@ class BlockProxyHandler(BaseHTTPRequestHandler):
             except Exception:
                 pass
 
+    # raccourcis pour méthodes HTTP
     def do_GET(self): self._handle_http_method()
     def do_POST(self): self._handle_http_method()
     def do_PUT(self): self._handle_http_method()
     def do_DELETE(self): self._handle_http_method()
     def do_HEAD(self): self._handle_http_method()
     def log_message(self, format, *args): return  # silence
+
 
 # === GUI (tkinter logging window) ===
 def show_log_window():
@@ -996,22 +1127,30 @@ def open_config_in_editor(path):
 
 def reload_config_action(icon=None, item=None):
     """
-    Recharge la configuration depuis le fichier utilisateur et demande au resolver de recharger si possible.
+    Recharge le fichier custom.cfg et relance le chargement complet des blocklists et whitelists.
     """
     try:
         cfg_path = get_custom_cfg_path(INSTALL_DIR)
         if not os.path.exists(cfg_path):
             log(f"Aucun custom.cfg trouvé à recharger : {cfg_path}")
             return
+
+        # Recharger les variables globales depuis le fichier custom.cfg
         load_custom_cfg_to_globals(cfg_path)
+        log("Configuration locale rechargée depuis le fichier utilisateur.")
+
         global current_resolver
         if current_resolver:
-            # lancer rechargement en thread sécurisé
+            # Lancer les deux rechargements (blocklist + whitelist) en parallèle
             threading.Thread(target=current_resolver._load_blocklist, daemon=True).start()
-            log("Demande de rechargement des blocklists externes (thread).")
-        log("Configuration rechargée depuis le fichier utilisateur.")
+            threading.Thread(target=current_resolver._load_whitelist, daemon=True).start()
+            log("Demande de rechargement complet des blocklists et whitelists externes (thread).")
+        else:
+            log("[WARN] Aucun resolver actif pour rechargement.")
+
     except Exception as e:
         log(f"Erreur lors du rechargement de la configuration : {e}")
+
 
 def toggle_block(icon, item):
     global block_enabled
