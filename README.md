@@ -10,7 +10,7 @@ Calm Web is meant to protect people with no or poor internet knowledge.
 It's aggressive by design, simple yet efficient ( i hope)
 It works system wide, so no matter the browser you use, it will work and will block already installed programs or tools, even the Windows remote assistance tool!
 
-![Find more informations and a demonstration herer!](https://www.youtube.com/watch?v=hA5_J1NefKE)
+![Find more informations and a demonstration here!](https://www.youtube.com/watch?v=hA5_J1NefKE)
 
 
 ## Installation:
