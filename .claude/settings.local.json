@@ -12,7 +12,9 @@
       "Bash(git remote set-url:*)",
       "Bash(git pull:*)",
       "WebFetch(domain:red.flag.domains)",
-      "WebFetch(domain:dl.red.flag.domains)"
+      "WebFetch(domain:dl.red.flag.domains)",
+      "Read(//c/Users/Alan/AppData/Roaming/**)",
+      "Bash(dir:*)"
     ],
     "deny": [],
     "ask": []

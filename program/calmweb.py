@@ -22,6 +22,7 @@ import ctypes
 import dns.resolver
 import tkinter as tk
 from collections import deque
+from datetime import datetime
 from PIL import Image, ImageDraw
 from pystray import Icon, MenuItem, Menu
 from tkinter.scrolledtext import ScrolledText
@@ -43,14 +44,8 @@ except Exception:
     WIN32_AVAILABLE = False
 
 # === Configuration ===
-BLOCKLIST_URLS = [
-    "https://raw.githubusercontent.com/StevenBlack/hosts/refs/heads/master/hosts",
-    "https://raw.githubusercontent.com/easylist/listefr/refs/heads/master/hosts.txt",
-    "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/ultimate.txt",
-    "https://raw.githubusercontent.com/Tontonjo/calmweb/refs/heads/main/filters/blocklist.txt",
-    # Red Flag Domains - French scam domains (Creative Commons BY-NC-SA 4.0)
-    "https://dl.red.flag.domains/pihole/red.flag.domains.txt"
-]
+# Configuration des blocklists (sera défini après les fonctions helper)
+BLOCKLIST_URLS = []
 
 WHITELIST_URLS = [
     "https://raw.githubusercontent.com/Tontonjo/calmweb/refs/heads/main/filters/whitelist.txt"
@@ -94,6 +89,8 @@ CUSTOM_CFG_NAME = "custom.cfg"
 
 USER_CFG_DIR = os.path.join(os.getenv('APPDATA') or os.path.expanduser("~"), "CalmWeb")
 USER_CFG_PATH = os.path.join(USER_CFG_DIR, CUSTOM_CFG_NAME)
+RED_FLAG_CACHE_PATH = os.path.join(USER_CFG_DIR, "red_flag_domains.txt")
+RED_FLAG_TIMESTAMP_PATH = os.path.join(USER_CFG_DIR, "red_flag_last_update.txt")
 
 # Global state
 block_enabled = True
@@ -351,6 +348,87 @@ def load_custom_cfg_to_globals(path):
             whitelisted_domains = whitelist
     return manual_blocked_domains, whitelisted_domains
 
+# === Red Flag Domains Auto-Update ===
+def should_update_red_flag_domains():
+    """Vérifie si red.flag.domains doit être mis à jour (quotidien)"""
+    try:
+        if not os.path.exists(RED_FLAG_TIMESTAMP_PATH):
+            return True
+
+        with open(RED_FLAG_TIMESTAMP_PATH, 'r') as f:
+            last_update_str = f.read().strip()
+
+        last_update = datetime.fromisoformat(last_update_str)
+        now = datetime.now()
+
+        # Mise à jour si plus de 24h ou nouveau jour
+        return (now - last_update).total_seconds() > 86400 or now.date() > last_update.date()
+
+    except Exception as e:
+        log(f"Erreur vérification timestamp red.flag.domains: {e}")
+        return True
+
+def download_red_flag_domains():
+    """Télécharge et cache red.flag.domains localement"""
+    try:
+        log("📥 Téléchargement red.flag.domains...")
+
+        # Créer le répertoire si nécessaire
+        os.makedirs(USER_CFG_DIR, exist_ok=True)
+
+        # Télécharger avec urllib3
+        http = urllib3.PoolManager()
+        response = http.request(
+            "GET",
+            "https://dl.red.flag.domains/pihole/red.flag.domains.txt",
+            timeout=urllib3.Timeout(connect=10.0, read=30.0)
+        )
+
+        if response.status == 200:
+            # Sauvegarder le fichier
+            with open(RED_FLAG_CACHE_PATH, 'wb') as f:
+                f.write(response.data)
+
+            # Marquer la date de mise à jour
+            with open(RED_FLAG_TIMESTAMP_PATH, 'w') as f:
+                f.write(datetime.now().isoformat())
+
+            log(f"✅ red.flag.domains mis à jour ({len(response.data)} bytes)")
+            return True
+        else:
+            log(f"❌ Échec téléchargement red.flag.domains: HTTP {response.status}")
+            return False
+
+    except Exception as e:
+        log(f"❌ Erreur téléchargement red.flag.domains: {e}")
+        return False
+
+def get_red_flag_domains_path():
+    """Retourne le chemin vers le fichier red.flag.domains (cache local ou URL)"""
+    if should_update_red_flag_domains():
+        download_red_flag_domains()
+
+    # Utiliser le cache local s'il existe
+    if os.path.exists(RED_FLAG_CACHE_PATH):
+        return f"file://{RED_FLAG_CACHE_PATH}"
+
+    # Fallback vers l'URL directe
+    return "https://dl.red.flag.domains/pihole/red.flag.domains.txt"
+
+def get_blocklist_urls():
+    """Retourne la liste des URLs de blocklist avec red.flag.domains mis à jour automatiquement"""
+    return [
+        "https://raw.githubusercontent.com/StevenBlack/hosts/refs/heads/master/hosts",
+        "https://raw.githubusercontent.com/easylist/listefr/refs/heads/master/hosts.txt",
+        "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/ultimate.txt",
+        "https://raw.githubusercontent.com/Tontonjo/calmweb/refs/heads/main/filters/blocklist.txt",
+        # Red Flag Domains - avec mise à jour automatique quotidienne
+        get_red_flag_domains_path()
+    ]
+
+# Initialisation des URLs de blocklist
+BLOCKLIST_URLS = get_blocklist_urls()
+
 # === Firewall / Proxy ===
 def add_firewall_rule(target_file):
     """
@@ -411,11 +489,19 @@ class BlocklistResolver:
                     success = False
                     for attempt in range(3):
                         try:
-                            log(f"⬇️ Téléchargement blocklist {url} (tentative {attempt+1})")
-                            response = http.request("GET", url, timeout=urllib3.Timeout(connect=5.0, read=10.0))
-                            if response.status != 200:
-                                raise Exception(f"HTTP {response.status}")
-                            content = response.data.decode("utf-8", errors='ignore')
+                            log(f"⬇️ Chargement blocklist {url} (tentative {attempt+1})")
+
+                            # Support des fichiers locaux (file://)
+                            if url.startswith("file://"):
+                                file_path = url[7:]  # Enlever "file://"
+                                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                                    content = f.read()
+                            else:
+                                # Téléchargement HTTP/HTTPS classique
+                                response = http.request("GET", url, timeout=urllib3.Timeout(connect=5.0, read=10.0))
+                                if response.status != 200:
+                                    raise Exception(f"HTTP {response.status}")
+                                content = response.data.decode("utf-8", errors='ignore')
                             for line in content.splitlines():
                                 try:
                                     line = line.split('#', 1)[0].strip()
@@ -1374,7 +1460,7 @@ def run_calmweb():
         log(f"Erreur chargement config initiale: {e}")
 
     try:
-        resolver = BlocklistResolver(BLOCKLIST_URLS, RELOAD_INTERVAL)
+        resolver = BlocklistResolver(get_blocklist_urls(), RELOAD_INTERVAL)
         current_resolver = resolver
     except Exception as e:
         log(f"Erreur création resolver: {e}")
