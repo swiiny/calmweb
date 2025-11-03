@@ -7,4 +7,5 @@ msftidentity.com
 msftauth.net
 digicert.com
 ctldl.windowsupdate.com
+# This domain appear usefull for sharing but appear in the URLHaus list.
 drive.google.com
