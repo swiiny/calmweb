@@ -28,10 +28,11 @@ The program will:
 - Browsing using IP addresses to avoid scams
 - Browsing on non standard port (80/443)
 - Domains listed in thoses lists: All credits to them!  
-    "https://raw.githubusercontent.com/StevenBlack/hosts/refs/heads/master/hosts"  
-    "https://raw.githubusercontent.com/easylist/listefr/refs/heads/master/hosts.txt"  
-    "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/ultimate.txt"  
-    "https://raw.githubusercontent.com/Tontonjo/calmweb/refs/heads/main/filters/blocklist.txt"  
+    https://raw.githubusercontent.com/StevenBlack/hosts/refs/heads/master/hosts  
+    https://raw.githubusercontent.com/easylist/listefr/refs/heads/master/hosts.txt   
+    https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/ultimate.txt   
+    https://raw.githubusercontent.com/Tontonjo/calmweb/refs/heads/main/filters/blocklist.txt  
+    https://dl.red.flag.domains/pihole/red.flag.domains.txt  
 - Domains manually added in the blocklist at %appdata%\calmweb\custom.cfg  
 <img width="668" height="17" alt="image" src="https://github.com/user-attachments/assets/01b07662-9826-4461-acd8-ae34e458ad81" />
 
