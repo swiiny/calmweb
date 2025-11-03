@@ -4,7 +4,7 @@
 # Tonton Jo - 2025
 # Join me on Youtube: https://www.youtube.com/c/tontonjo
 
-calmweb_version = "1.0.0"
+calmweb_version = "1.1.0"
 
 
 import os
@@ -52,26 +52,7 @@ WHITELIST_URLS = [
 ]
 
 manual_blocked_domains = {
-   # Arnaques support technique francaises
-   "microsoft-assistance.fr",
-   "windows-support-france.com",
-   "depannage-ordinateur-gratuit.com",
-   "antivirus-gratuit-telechargement.net",
-   "support-technique-microsoft.fr",
-   "windows-security-alert.fr",
-   "computer-virus-detected.fr",
-
-   # Arnaques financières
-   "gagner-argent-facile.fr",
-   "lottery-winner-millions.fr",
-   "congratulations-you-won.fr",
-   "paypal-security-check.fr",
-   "secure-bank-verification.fr",
-
-   # Arnaques e-commerce
-   "soldes-exceptionnels.fr",
-   "promotion-limitee.com",
-   "offre-speciale-gratuit.fr"
+    "add.blocked.domain"
 }
 
 whitelisted_domains = {
@@ -1517,7 +1498,7 @@ def robust_main():
             log(f"🚀 Démarrage CalmWeb (tentative {restart_count + 1})")
 
             exe_name = os.path.basename(sys.argv[0]).lower()
-            if exe_name == "calmweb_proxy.exe":
+            if exe_name == "calmweb_installer.exe":
                 install()
             else:
                 run_calmweb()
