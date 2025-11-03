@@ -14,7 +14,8 @@
       "WebFetch(domain:red.flag.domains)",
       "WebFetch(domain:dl.red.flag.domains)",
       "Read(//c/Users/Alan/AppData/Roaming/**)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []

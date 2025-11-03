@@ -8,6 +8,8 @@ Tests integration between components including:
 - System integration features
 """
 
+import os
+import sys
 import socket
 import threading
 import time

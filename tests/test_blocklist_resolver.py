@@ -7,6 +7,8 @@ Tests domain blocking, whitelisting, and the resolver's core functionality.
 import ipaddress
 import threading
 import time
+import tempfile
+import os
 from unittest.mock import Mock, patch, MagicMock
 
 import pytest
@@ -484,3 +486,81 @@ class TestBlocklistResolverIntegration:
 
         # Should not be blocked (whitelist priority)
         assert resolver._is_blocked("dynamic.com") == False
+
+    @pytest.mark.unit
+    def test_local_file_support(self, tmp_path):
+        """Test loading blocklist from local file:// URLs."""
+        # Create a temporary blocklist file
+        blocklist_file = tmp_path / "test_blocklist.txt"
+        blocklist_content = """# Test blocklist
+0.0.0.0 local-test-domain.com
+127.0.0.1 another-local-test.fr
+# Comment line
+malicious-local.net
+"""
+        blocklist_file.write_text(blocklist_content)
+
+        # Create resolver with file:// URL
+        file_url = f"file://{blocklist_file}"
+        resolver = calmweb.BlocklistResolver([file_url])
+
+        # Wait for loading to complete
+        time.sleep(0.1)
+
+        # Check that domains were loaded
+        assert resolver._is_blocked("local-test-domain.com") == True
+        assert resolver._is_blocked("another-local-test.fr") == True
+        assert resolver._is_blocked("malicious-local.net") == True
+        assert resolver._is_blocked("not-in-list.com") == False
+
+    @pytest.mark.unit
+    @patch('urllib3.PoolManager')
+    def test_mixed_local_and_remote_sources(self, mock_pool_manager, tmp_path):
+        """Test resolver with both local files and remote URLs."""
+        # Setup local file
+        local_file = tmp_path / "local_blocklist.txt"
+        local_file.write_text("0.0.0.0 local-blocked.com\n")
+
+        # Setup mock for remote URL
+        mock_response = Mock()
+        mock_response.status = 200
+        mock_response.data = b"0.0.0.0 remote-blocked.com\n"
+        mock_pool_manager.return_value.request.return_value = mock_response
+
+        # Create resolver with mixed sources
+        sources = [
+            f"file://{local_file}",
+            "http://example.com/remote_blocklist.txt"
+        ]
+        resolver = calmweb.BlocklistResolver(sources)
+
+        # Wait for loading to complete
+        time.sleep(0.1)
+
+        # Check both local and remote domains are blocked
+        assert resolver._is_blocked("local-blocked.com") == True
+        assert resolver._is_blocked("remote-blocked.com") == True
+
+    @pytest.mark.unit
+    def test_file_url_error_handling(self):
+        """Test error handling for invalid file:// URLs."""
+        # Test with non-existent file
+        resolver = calmweb.BlocklistResolver(["file:///non/existent/file.txt"])
+
+        # Should not crash, just log error and continue
+        time.sleep(0.1)
+
+        # Should still function normally
+        assert resolver._is_blocked("test.com") == False
+
+    @pytest.mark.unit
+    def test_red_flag_domains_integration(self):
+        """Test integration with red.flag.domains automatic updates."""
+        with patch.object(calmweb, 'get_red_flag_domains_path', return_value="file://test_red_flag.txt"), \
+             patch('os.path.exists', return_value=False):
+
+            urls = calmweb.get_blocklist_urls()
+
+            # Should include red.flag.domains path
+            assert "file://test_red_flag.txt" in urls
+            assert len(urls) == 5  # 4 original + 1 red.flag.domains

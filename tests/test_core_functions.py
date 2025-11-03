@@ -10,7 +10,10 @@ Tests the fundamental utility functions including:
 
 import threading
 import time
+import tempfile
+import os
 from collections import deque
+from datetime import datetime, timedelta
 from unittest.mock import Mock, patch, mock_open
 
 import pytest
@@ -488,3 +491,118 @@ class TestThreadSafety:
 
         calmweb._RESOLVER_LOADING.clear()
         assert not calmweb._RESOLVER_LOADING.is_set()
+
+
+class TestRedFlagDomainsAutoUpdate:
+    """Test Red Flag Domains automatic update functionality."""
+
+    @pytest.mark.unit
+    def test_should_update_red_flag_domains_no_timestamp(self):
+        """Test update check when no timestamp file exists."""
+        with patch('os.path.exists', return_value=False):
+            assert calmweb.should_update_red_flag_domains() == True
+
+    @pytest.mark.unit
+    def test_should_update_red_flag_domains_old_timestamp(self):
+        """Test update check with old timestamp (>24h)."""
+        old_time = datetime.now() - timedelta(hours=25)
+        with patch('os.path.exists', return_value=True), \
+             patch('builtins.open', mock_open(read_data=old_time.isoformat())):
+            assert calmweb.should_update_red_flag_domains() == True
+
+    @pytest.mark.unit
+    def test_should_update_red_flag_domains_recent_timestamp(self):
+        """Test update check with recent timestamp (<24h)."""
+        recent_time = datetime.now() - timedelta(hours=12)
+        with patch('os.path.exists', return_value=True), \
+             patch('builtins.open', mock_open(read_data=recent_time.isoformat())):
+            assert calmweb.should_update_red_flag_domains() == False
+
+    @pytest.mark.unit
+    def test_should_update_red_flag_domains_new_day(self):
+        """Test update check for new day even if <24h."""
+        yesterday = datetime.now().replace(hour=23, minute=59) - timedelta(days=1)
+        with patch('os.path.exists', return_value=True), \
+             patch('builtins.open', mock_open(read_data=yesterday.isoformat())):
+            assert calmweb.should_update_red_flag_domains() == True
+
+    @pytest.mark.unit
+    @patch('urllib3.PoolManager')
+    def test_download_red_flag_domains_success(self, mock_pool_manager):
+        """Test successful download of red.flag.domains."""
+        # Mock successful HTTP response
+        mock_response = Mock()
+        mock_response.status = 200
+        mock_response.data = b"0.0.0.0 example-scam.fr\n0.0.0.0 fake-site.fr"
+        mock_pool_manager.return_value.request.return_value = mock_response
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with patch.object(calmweb, 'USER_CFG_DIR', temp_dir), \
+                 patch.object(calmweb, 'RED_FLAG_CACHE_PATH', os.path.join(temp_dir, 'red_flag_domains.txt')), \
+                 patch.object(calmweb, 'RED_FLAG_TIMESTAMP_PATH', os.path.join(temp_dir, 'red_flag_last_update.txt')):
+
+                result = calmweb.download_red_flag_domains()
+
+                assert result == True
+                assert os.path.exists(calmweb.RED_FLAG_CACHE_PATH)
+                assert os.path.exists(calmweb.RED_FLAG_TIMESTAMP_PATH)
+
+                # Check file content
+                with open(calmweb.RED_FLAG_CACHE_PATH, 'rb') as f:
+                    content = f.read()
+                    assert b"example-scam.fr" in content
+
+    @pytest.mark.unit
+    @patch('urllib3.PoolManager')
+    def test_download_red_flag_domains_http_error(self, mock_pool_manager):
+        """Test download failure with HTTP error."""
+        mock_response = Mock()
+        mock_response.status = 404
+        mock_pool_manager.return_value.request.return_value = mock_response
+
+        result = calmweb.download_red_flag_domains()
+        assert result == False
+
+    @pytest.mark.unit
+    @patch('urllib3.PoolManager')
+    def test_download_red_flag_domains_network_error(self, mock_pool_manager):
+        """Test download failure with network error."""
+        mock_pool_manager.return_value.request.side_effect = Exception("Network error")
+
+        result = calmweb.download_red_flag_domains()
+        assert result == False
+
+    @pytest.mark.unit
+    def test_get_red_flag_domains_path_with_cache(self):
+        """Test path retrieval when cache exists."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cache_file = os.path.join(temp_dir, 'red_flag_domains.txt')
+            with open(cache_file, 'w') as f:
+                f.write("test content")
+
+            with patch.object(calmweb, 'RED_FLAG_CACHE_PATH', cache_file), \
+                 patch.object(calmweb, 'should_update_red_flag_domains', return_value=False):
+
+                path = calmweb.get_red_flag_domains_path()
+                assert path.startswith("file://")
+                assert cache_file in path
+
+    @pytest.mark.unit
+    def test_get_red_flag_domains_path_fallback(self):
+        """Test path retrieval falls back to URL when no cache."""
+        with patch.object(calmweb, 'should_update_red_flag_domains', return_value=True), \
+             patch.object(calmweb, 'download_red_flag_domains', return_value=False), \
+             patch('os.path.exists', return_value=False):
+
+            path = calmweb.get_red_flag_domains_path()
+            assert path == "https://dl.red.flag.domains/pihole/red.flag.domains.txt"
+
+    @pytest.mark.unit
+    def test_get_blocklist_urls_includes_red_flag_domains(self):
+        """Test that get_blocklist_urls includes red.flag.domains."""
+        with patch.object(calmweb, 'get_red_flag_domains_path', return_value="file://test.txt"):
+            urls = calmweb.get_blocklist_urls()
+
+            assert len(urls) == 5  # 4 original + 1 red.flag.domains
+            assert "file://test.txt" in urls
+            assert "https://raw.githubusercontent.com/StevenBlack/hosts/refs/heads/master/hosts" in urls
