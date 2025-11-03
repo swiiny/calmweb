@@ -98,7 +98,6 @@ def _safe_str(obj):
         return str(obj)
     except Exception:
         return f"<{type(obj).__name__} object>"
-
 def log(msg):
     try:
         timestamp = time.strftime("[%H:%M:%S]")
