@@ -1,0 +1,13 @@
+# Github
+github.com
+githubusercontent.com
+
+# Chocolatey
+chocolatey.org
+
+# Discord
+discord.com
+## Needed to download images
+cdn.discordapp.com
+## Needed to Upload images
+storage.googleapis.com
