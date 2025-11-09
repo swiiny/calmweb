@@ -42,8 +42,8 @@ The program will:
     "https://raw.githubusercontent.com/Tontonjo/calmweb/refs/heads/main/filters/whitelist.txt"  
 - Domains manually added in the whitelist at %appdata%\calmweb\custom.cfg
 
-# Common domains blocked / :
-This list contains domains that appears to be or have been blocked and may need to be manually whitelisted if you need them.
+###  Usefull blocked domains:  
+[This list ](https://raw.githubusercontent.com/Tontonjo/calmweb/refs/heads/main/filters/usefull_domains.txt) contains domains that may be usefull if y'oure a "power user" but appears to be listed in blocklists.
 
 ### Known problems:
 - Sandbox not working whhen calmweb is running
