@@ -40,7 +40,10 @@ The program will:
 ### By default the following domains are whitelisted.
 - Domains listed in thoses lists:  
     "https://raw.githubusercontent.com/Tontonjo/calmweb/refs/heads/main/filters/whitelist.txt"  
-- Domains manually added in the whitelist at %appdata%\calmweb\custom.cfg  
+- Domains manually added in the whitelist at %appdata%\calmweb\custom.cfg
+
+# Common domains blocked / :
+This list contains domains that appears to be or have been blocked and may need to be manually whitelisted if you need them.
 
 ### Known problems:
 - Sandbox not working whhen calmweb is running
