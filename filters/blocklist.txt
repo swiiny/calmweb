@@ -14,24 +14,3 @@ zoho.com
 zohoassist.com
 connectwise.com
 remoteassistance.support.services.microsoft.com
-
-# Arnaques support technique francaises
-microsoft-assistance.fr
-windows-support-france.com
-depannage-ordinateur-gratuit.com
-antivirus-gratuit-telechargement.net
-support-technique-microsoft.fr
-windows-security-alert.fr
-computer-virus-detected.fr
-
-# Arnaques financières
-gagner-argent-facile.fr
-lottery-winner-millions.fr
-congratulations-you-won.fr
-paypal-security-check.fr
-secure-bank-verification.fr
-
-# Arnaques e-commerce
-soldes-exceptionnels.fr
-promotion-limitee.com
-offre-speciale-gratuit.fr
