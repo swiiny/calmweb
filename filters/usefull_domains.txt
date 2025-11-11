@@ -1,13 +1,16 @@
-# Github
+# Developpement
+## Github
 github.com
 githubusercontent.com
+## Gitlab
+gitlab.com
 
-# Chocolatey
+# Packages and sources
+## Chocolatey
 chocolatey.org
 
-# Discord
+# Communication
+## Discord
 discord.com
-## Needed to download images
 cdn.discordapp.com
-## Needed to Upload images
 storage.googleapis.com
