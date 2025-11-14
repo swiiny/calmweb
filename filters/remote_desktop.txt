@@ -1,4 +1,4 @@
-# Thoses domains are blocked for security reasons, if one needs to be allowed, use the custom.cfg whitelist
+# Thoses domains are blocked for security reasons, if one needs to be allowed, disable in calmweb settings or add one in the whitelist
 
 # Remote Assistance tools
 teamviewer.com
