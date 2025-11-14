@@ -1,1 +1,16 @@
+# Thoses domains are blocked for security reasons, if one needs to be allowed, use the custom.cfg whitelist
 
+# Remote Assistance tools
+teamviewer.com
+remotedesktop.google.com
+remotepc.com
+anyviewer.com
+splashtop.com
+anydesk.com
+logmein.com
+gotomypc.com
+goto.com
+zoho.com
+zohoassist.com
+connectwise.com
+remoteassistance.support.services.microsoft.com
