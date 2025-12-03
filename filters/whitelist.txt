@@ -14,3 +14,5 @@ ooklaserver.net
 # Web Content Delivery
 ## Sodastream website not displaying correctly
 cdn.jsdeliver.net
+# Google Storage
+storage.googleapis.com
