@@ -1161,8 +1161,35 @@ def show_log_window():
     text_area.pack(expand=True, fill='both')
     text_area.config(state='disabled')
 
-    def refresh_log():
+    refresh_job = None
+    closed = False
+
+    def close_window():
+        nonlocal refresh_job, closed
+        if closed:
+            return
+        closed = True
         try:
+            if refresh_job:
+                try:
+                    win.after_cancel(refresh_job)
+                except Exception:
+                    pass
+            win.destroy()
+        except Exception:
+            pass
+
+    win.protocol("WM_DELETE_WINDOW", close_window)
+
+    def refresh_log():
+        nonlocal refresh_job, closed
+        if closed or _SHUTDOWN_EVENT.is_set():
+            close_window()
+            return
+        try:
+            if not win.winfo_exists():
+                close_window()
+                return
             text_area.config(state='normal')
             with _LOG_LOCK:
                 text_area.delete(1.0, tk.END)
@@ -1170,14 +1197,10 @@ def show_log_window():
             text_area.see(tk.END)
             text_area.config(state='disabled')
         except Exception:
-            pass
-        if not _SHUTDOWN_EVENT.is_set():
-            win.after(1000, refresh_log)
-        else:
-            try:
-                win.destroy()
-            except Exception:
-                pass
+            # Si la fenêtre est détruite pendant l'update, on arrête la boucle
+            close_window()
+            return
+        refresh_job = win.after(1000, refresh_log)
 
     refresh_log()
     try:
