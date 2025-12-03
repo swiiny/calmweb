@@ -12,4 +12,5 @@ drive.google.com
 # Speedtest.net use custom port and is a commonly used tool
 ooklaserver.net
 # Web Content Delivery
+## Sodastream website not displaying correctly
 cdn.jsdeliver.net
