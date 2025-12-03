@@ -13,4 +13,3 @@ chocolatey.org
 ## Discord
 discord.com
 cdn.discordapp.com
-storage.googleapis.com
