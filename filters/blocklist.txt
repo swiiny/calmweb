@@ -1,1 +1,17 @@
 # This is a community driven blocklist! Pull your request!
+
+# Remote Assistance
+anydesk.com
+anyviewer.com
+connectwise.com
+remotedesktop.google.com
+goto.com
+gotomypc.com
+logmein.com
+remoteassistance.support.services.microsoft.com
+remotepc.com
+splashtop.com
+teamviewer.com
+ultraviewer.net
+zoho.com
+zohoassist.com
